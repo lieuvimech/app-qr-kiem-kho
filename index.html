@@ -1,29 +1,27 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
 <title>📦 App kiểm kho QR 17</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
 <style>
   body { font-family: sans-serif; text-align: center; padding: 10px; }
   #reader { width: 100%; max-width: 400px; margin: auto; }
   #controls { margin-top: 20px; display: block; }
-  input { padding: 6px; font-size: 16px; width: 100px; }
-  button { padding: 6px 12px; font-size: 16px; margin-left: 6px; }
+  input, button { padding: 6px; font-size: 16px; }
   #debug { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <h2>📦 App kiểm kho QR</h2>
-<p id="version">📌 CODE_VERSION: 1</p>
 
 <div id="reader"></div>
 
 <div id="controls">
   <p>Mã vừa quét: <b id="scannedText"></b></p>
-  <input id="inputQty" type="number" placeholder="Số lượng (mặc định =1)">
+  <input id="inputQty" type="number" placeholder="Số lượng (mặc định=1)">
   <button id="btnSend">Gửi</button>
 </div>
 
@@ -34,8 +32,6 @@
 const FLASK_URL = "http://localhost:5000/send"; // endpoint Flask
 
 let scanner;
-let lastRowId = null;
-
 function log(msg) {
   const debug = document.getElementById("debug");
   debug.textContent += msg + "\n";
@@ -49,51 +45,41 @@ function onScanSuccess(decodedText) {
 }
 
 window.addEventListener("load", () => {
-  log("Khởi tạo Html5Qrcode...");
   scanner = new Html5Qrcode("reader");
-  Html5Qrcode.getCameras().then(cameras => {
-    if (cameras && cameras.length) {
-      log("Sử dụng camera: " + cameras[0].label);
-      scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        onScanSuccess,
-        err => {}
-      ).then(() => log("🚀 Bắt đầu quét"))
-       .catch(err => log("❌ Lỗi start scanner: " + err));
+  Html5Qrcode.getCameras().then(cams => {
+    if(cams && cams.length) {
+      log("Sử dụng camera: " + cams[0].label);
+      scanner.start({facingMode:"environment"}, {fps:10, qrbox:250}, onScanSuccess, ()=>{});
     }
   });
 });
 
 async function sendData() {
   const text = document.getElementById("scannedText").innerText;
-  if (!text) return log("⚠️ Không có dữ liệu QR để gửi");
-
+  if(!text) return log("⚠️ Không có QR để gửi");
   const qty = parseInt(document.getElementById("inputQty").value) || 1;
-  const payload = { qr_text: text, qty };
+  const payload = {qr_text: text, qty};
 
-  log("📤 Chuẩn bị gửi dữ liệu tới Flask: " + JSON.stringify(payload));
-
+  log("📤 Gửi dữ liệu tới Flask: " + JSON.stringify(payload));
   try {
     const resp = await fetch(FLASK_URL, {
       method: "POST",
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     });
     const result = await resp.json();
     log("📥 Flask response: " + JSON.stringify(result));
-
-    if (result.success) alert("✅ Gửi dữ liệu thành công!");
-    else alert("❌ Lỗi gửi dữ liệu, xem debug log");
-
-  } catch(err) {
-    log("❌ Lỗi gửi dữ liệu tới Flask: " + err);
+    if(result.success) alert("✅ Gửi thành công!");
+    else alert("❌ Lỗi, xem log debug");
+  } catch(e) {
+    log("❌ Lỗi gửi dữ liệu: " + e);
   }
 
-  document.getElementById("controls").style.display = "none";
-  document.getElementById("inputQty").value = "";
-  document.getElementById("scannedText").innerText = "";
+  document.getElementById("controls").style.display="none";
+  document.getElementById("inputQty").value="";
+  document.getElementById("scannedText").innerText="";
 }
+
 document.getElementById("btnSend").addEventListener("click", sendData);
 </script>
 
