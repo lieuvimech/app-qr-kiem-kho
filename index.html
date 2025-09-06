@@ -8,15 +8,16 @@
 <style>
   body { font-family: sans-serif; text-align: center; padding: 10px; }
   #reader { width: 100%; max-width: 400px; margin: auto; }
-  #controls { margin-top: 20px; display: block; }
+  #controls { margin-top: 20px; display: none; }
   input { padding: 6px; font-size: 16px; width: 100px; }
   button { padding: 6px 12px; font-size: 16px; margin-left: 6px; }
-  #debug { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
+  #debug { text-align: left; margin-top: 20px; max-height: 250px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <h2>📦 App kiểm kho QR</h2>
+<p id="version"></p>
 
 <label>
   <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
@@ -27,26 +28,27 @@
 <div id="controls">
   <p>Mã vừa quét: <b id="scannedText"></b></p>
   <input id="inputQty" type="number" placeholder="Số lượng (mặc định =1)">
-  <button onclick="sendData()">Gửi</button>
+  <button id="btnSend">Gửi</button>
 </div>
 
 <h3>📋 Debug log</h3>
-<div id="debug"></div>
+<div id="debug">Trang đã load...</div>
 
 <script>
-const CODE_VERSION = "5"; // bạn có thể update theo git commit/push
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec"; // Apps Script deploy
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
+
+const CODE_VERSION = "6"; // ghi lại bản push theo git/date
+document.getElementById("version").innerText = "📌 CODE_VERSION: " + CODE_VERSION;
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
-let lastRowId = null; // lưu row vừa tạo khi gửi QR vật tư
+let lastRowId = null;
+let scanner;
 
 function log(msg) {
   const debug = document.getElementById("debug");
   debug.textContent += msg + "\n";
   debug.scrollTop = debug.scrollHeight;
 }
-
-log("📌 CODE_VERSION: " + CODE_VERSION);
 
 document.getElementById("togglePosition").addEventListener("change", (e)=>{
   ENABLE_SCAN_POSITION = e.target.checked;
@@ -55,19 +57,15 @@ document.getElementById("togglePosition").addEventListener("change", (e)=>{
 
 function onScanSuccess(decodedText) {
   log("✅ Scan thành công: " + decodedText);
-  //1. Cập nhật DOM trước
+  scanner.clear();
   document.getElementById("scannedText").innerText = decodedText;
   document.getElementById("controls").style.display = "block";
-
-  // 2. Clear scanner sau khi đã hiển thị
-  // scanner.clear(); // <-- tạm comment nếu muốn scan liên tục, hoặc clear sau khi gửi
 }
 
 function onScanFailure(error) {
   // Không spam log
 }
 
-let scanner;
 window.addEventListener("load", () => {
   log("Khởi tạo Html5Qrcode...");
   try {
@@ -92,53 +90,44 @@ window.addEventListener("load", () => {
 });
 
 async function sendData() {
-  const text = document.getElementById("scannedText").innerText.trim();
-  if (!text) {
-    alert("⚠️ Chưa có QR code nào để gửi!");
-    return;
-  }
-
+  const text = document.getElementById("scannedText").innerText;
   const qtyInput = document.getElementById("inputQty").value;
   const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
 
   let payload = { qr_text: text, qty };
-
-  log("📤 Chuẩn bị gửi mã vật tư: " + JSON.stringify(payload));
-  document.getElementById("controls").style.display = "none";
-
   try {
-    let resp, result;
-    log("📡 Bắt đầu gửi request tới GAS...");
-
-    resp = await fetch(SCRIPT_URL, {
+    log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
+    let resp = await fetch(SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify(payload),
-      headers: { "Content-Type": "application/json" }
+      body: JSON.stringify(payload)
     });
+    log("📡 Request đã gửi, HTTP status: " + resp.status);
 
-    const status = resp.status;
-    log("📡 Request đã gửi, HTTP status: " + status);
+    let result = await resp.json();
+    log("📥 GAS trả về: " + JSON.stringify(result));
 
-    try {
-      result = await resp.json();
-      log("📥 GAS trả về JSON: " + JSON.stringify(result));
-    } catch (e) {
-      const textResp = await resp.text();
-      log("❌ Không parse được JSON, raw response: " + textResp);
-      result = { raw: textResp };
+    if (ENABLE_SCAN_POSITION) {
+      if (!lastRowId) {
+        lastRowId = result.lastRow;
+        alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
+      } else {
+        alert("📍 Đã gửi mã vị trí!");
+        lastRowId = null;
+      }
+    } else {
+      alert("✅ Đã gửi dữ liệu!");
     }
-
-    alert("✅ Dữ liệu đã gửi! Xem debug log để biết chi tiết.");
   } catch(err) {
     log("❌ Lỗi khi gửi dữ liệu tới GAS: " + err);
     alert("❌ Lỗi gửi dữ liệu, xem debug log");
   }
 
-  // Reset controls và bật quét lại
-  document.getElementById("inputQty").value = "";
   document.getElementById("controls").style.display = "none";
+  document.getElementById("inputQty").value = "";
   scanner.render(onScanSuccess); // bật quét lại
 }
+
+document.getElementById("btnSend").addEventListener("click", sendData);
 </script>
 
 </body>
