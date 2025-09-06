@@ -1,108 +1,122 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <title>Scan QR kiểm kho</title>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <style>
-    body { font-family: sans-serif; padding: 10px; }
-    #reader { width: 100%; max-width: 400px; margin: auto; }
-    #debug { white-space: pre-wrap; border: 1px solid #ccc; padding: 6px; margin-top: 10px; font-size: 13px; height: 200px; overflow-y: auto; background: #f9f9f9; }
-    button { margin: 5px 0; padding: 6px 12px; }
-  </style>
+<meta charset="UTF-8">
+<title>📦 App kiểm kho QR (Debug)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+<style>
+  body { font-family: sans-serif; text-align: center; padding: 10px; }
+  #reader { width: 100%; max-width: 400px; margin: auto; }
+  #controls { margin-top: 20px; display: none; }
+  input { padding: 6px; font-size: 16px; width: 100px; }
+  button { padding: 6px 12px; font-size: 16px; margin-left: 6px; }
+  #debug { text-align: left; margin-top: 20px; max-height: 200px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; }
+</style>
 </head>
 <body>
-  <h3>📦 Scan QR kiểm kho</h3>
-  <div id="reader"></div>
 
-  <button id="togglePos">Bật/Tắt quét vị trí (ENABLE_SCAN_POSITION)</button>
+<h2>📦 App kiểm kho QR</h2>
 
-  <div id="debug"></div>
+<label>
+  <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
+</label>
 
-  <script>
-    // === Cấu hình ===
-    let ENABLE_SCAN_POSITION = true;
-    const SHEET_NAME = "Scan QR kiểm kho";  // Sheet bạn muốn
-    const SCRIPT_URL = "YOUR_APPS_SCRIPT_DEPLOYMENT_URL"; // ⚠️ Đổi URL Apps Script
+<div id="reader"></div>
 
-    // === Debug helper ===
-    function logDebug(msg) {
-      const dbg = document.getElementById("debug");
-      dbg.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
-      dbg.scrollTop = dbg.scrollHeight;
-      console.log(msg);
+<div id="controls">
+  <p>Mã vừa quét: <b id="scannedText"></b></p>
+  <input id="inputQty" type="number" placeholder="Số lượng (mặc định =1)">
+  <button onclick="sendData()">Gửi</button>
+</div>
+
+<h3>📋 Debug log</h3>
+<div id="debug"></div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/YOUR_DEPLOYED_WEBAPP_ID/exec";
+const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID"; // Nếu Apps Script cần ID
+
+let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
+let waitingForPosition = false;
+
+function logDebug(msg) {
+  const debugDiv = document.getElementById("debug");
+  debugDiv.innerHTML += msg + "<br>";
+  debugDiv.scrollTop = debugDiv.scrollHeight;
+}
+
+document.getElementById("togglePosition").addEventListener("change", (e)=>{
+  ENABLE_SCAN_POSITION = e.target.checked;
+  logDebug("ENABLE_SCAN_POSITION = " + ENABLE_SCAN_POSITION);
+});
+
+function onScanSuccess(decodedText) {
+  logDebug("✅ Quét được: " + decodedText);
+  scanner.clear(); // dừng quét
+  document.getElementById("scannedText").innerText = decodedText;
+  document.getElementById("controls").style.display = "block";
+}
+
+function onScanFailure(error) {
+  logDebug("⚠️ Lỗi quét: " + error);
+}
+
+// Khởi tạo scanner
+logDebug("Khởi tạo Html5QrcodeScanner...");
+const scanner = new Html5Qrcode("reader");
+
+Html5Qrcode.getCameras().then(cameras => {
+  if(cameras && cameras.length){
+    const cameraId = cameras[0].id; // camera chính sau
+    logDebug("Sử dụng camera: " + cameras[0].label);
+    scanner.start(
+      { deviceId: { exact: cameraId } },
+      { fps: 10, qrbox: 250 },
+      onScanSuccess,
+      onScanFailure
+    ).catch(err => logDebug("❌ Lỗi start scanner: " + err));
+  } else {
+    logDebug("❌ Không tìm thấy camera!");
+  }
+}).catch(err => logDebug("❌ Lỗi getCameras: " + err));
+
+async function sendData() {
+  const text = document.getElementById("scannedText").innerText;
+  const qtyInput = document.getElementById("inputQty").value;
+  const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
+
+  let payload = { qr_text: text, qty };
+
+  if (ENABLE_SCAN_POSITION) {
+    if (!waitingForPosition) {
+      // gửi mã vật tư
+      payload.isPosition = false;
+      waitingForPosition = true;
+      logDebug("📤 Gửi mã vật tư: " + JSON.stringify(payload));
+      await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
+      alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
+    } else {
+      // gửi mã vị trí
+      payload.isPosition = true;
+      waitingForPosition = false;
+      logDebug("📤 Gửi mã vị trí: " + JSON.stringify(payload));
+      await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
+      alert("📍 Đã gửi mã vị trí!");
     }
+  } else {
+    // gửi bình thường
+    payload.isPosition = false;
+    logDebug("📤 Gửi dữ liệu: " + JSON.stringify(payload));
+    await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
+    alert("✅ Đã gửi dữ liệu!");
+  }
 
-    // === Toggle button ===
-    document.getElementById("togglePos").onclick = () => {
-      ENABLE_SCAN_POSITION = !ENABLE_SCAN_POSITION;
-      logDebug("ENABLE_SCAN_POSITION = " + ENABLE_SCAN_POSITION);
-      alert("ENABLE_SCAN_POSITION = " + ENABLE_SCAN_POSITION);
-    };
+  document.getElementById("controls").style.display = "none";
+  document.getElementById("inputQty").value = "";
+  scanner.render(onScanSuccess); // bật quét lại
+}
+</script>
 
-    // === Gửi dữ liệu về Google Sheet ===
-    async function sendToSheet(qrText, isPosition=false, qty=1) {
-      const payload = {
-        qr_text: qrText,
-        qty: qty,
-        isPosition: isPosition,
-        sheetName: SHEET_NAME
-      };
-
-      try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify(payload),
-          headers: { "Content-Type": "application/json" }
-        });
-        const text = await res.text();
-        logDebug("Gửi thành công: " + JSON.stringify(payload) + " → " + text);
-      } catch (err) {
-        logDebug("❌ Lỗi gửi dữ liệu: " + err);
-      }
-    }
-
-    // === Callback scan QR ===
-    function onScanSuccess(decodedText, decodedResult) {
-      logDebug("QR quét được: " + decodedText);
-
-      if (ENABLE_SCAN_POSITION && decodedText.startsWith("POS:")) {
-        sendToSheet(decodedText, true);
-      } else {
-        sendToSheet(decodedText, false, 1);
-      }
-    }
-
-    function onScanFailure(error) {
-      // Không log quá nhiều
-    }
-
-    // === Khởi tạo camera ===
-    function startScanner() {
-      const html5QrCode = new Html5Qrcode("reader");
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-          // Ưu tiên camera sau
-          let backCamera = devices.find(d => 
-            d.label.toLowerCase().includes("back") || 
-            d.label.toLowerCase().includes("rear")
-          );
-          const cameraId = backCamera ? backCamera.id : devices[0].id;
-    
-          logDebug("Sử dụng camera: " + (backCamera ? backCamera.label : devices[0].label));
-    
-          html5QrCode.start(
-            cameraId,
-            { fps: 10, qrbox: 250 },
-            onScanSuccess,
-            onScanFailure
-          ).catch(err => logDebug("❌ Lỗi start scanner: " + err));
-        } else {
-          logDebug("❌ Không tìm thấy camera nào");
-        }
-      }).catch(err => logDebug("❌ Lỗi getCameras: " + err));
-    }
-    startScanner();
-  </script>
 </body>
 </html>
