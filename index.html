@@ -18,7 +18,7 @@
 
 <h2>📦 App kiểm kho QR</h2>
 
-<p id="version">📌 CODE_VERSION: 7</p>
+<p id="version">📌 CODE_VERSION: 8</p>
 
 <label>
   <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
@@ -55,12 +55,16 @@ document.getElementById("togglePosition").addEventListener("change", (e)=>{
 
 function onScanSuccess(decodedText) {
   log("✅ Scan thành công: " + decodedText);
-  scanner.clear();
+  
+  //Lấy dữ liệu
   document.getElementById("scannedText").innerText = decodedText;
   document.getElementById("controls").style.display = "block";
 
   // Gửi tự động
   sendData();
+
+  //Clear dữ liệu
+  scanner.clear();
 }
 
 function onScanFailure(error) {}
