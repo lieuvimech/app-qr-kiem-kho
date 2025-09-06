@@ -2,26 +2,22 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>📦 App kiểm kho QR</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📦 App kiểm kho QR 16.5</title>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
 <style>
-  body { font-family: sans-serif; text-align: center; padding: 10px; }
-  #reader { width: 100%; max-width: 400px; margin: auto; }
-  #controls { margin-top: 20px; display: block; }
-  input { padding: 6px; font-size: 16px; width: 100px; }
-  button { padding: 6px 12px; font-size: 16px; margin-left: 6px; }
-  #debug { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
+body { font-family: sans-serif; text-align: center; padding: 10px; }
+#reader { width: 100%; max-width: 400px; margin: auto; }
+#controls { margin-top: 20px; display: block; }
+input { padding: 6px; font-size: 16px; width: 100px; }
+button { padding: 6px 12px; font-size: 16px; margin-left: 6px; }
+#debug { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <h2>📦 App kiểm kho QR</h2>
-<p id="version">📌 CODE_VERSION: 16</p>
 
-<label>
-  <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
-</label>
+<label><input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION</label>
 
 <div id="reader"></div>
 
@@ -82,25 +78,23 @@ window.addEventListener("load", () => {
 async function sendData() {
   const text = document.getElementById("scannedText").innerText;
   if (!text) { log("⚠️ Không có dữ liệu QR để gửi"); return; }
+
   const qty = parseInt(document.getElementById("inputQty").value) || 1;
   let payload = { qr_text: text, qty, isPosition: ENABLE_SCAN_POSITION && !!lastRowId };
   if (payload.isPosition) payload.rowId = lastRowId;
 
-  log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
-  log("📡 Bắt đầu gửi request tới GAS...");
+  log("📤 Chuẩn bị gửi dữ liệu (no-cors)...");
 
   try {
-    const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-    log("📡 Request đã gửi, HTTP status: " + resp.status);
-    const result = await resp.json();
-    log("📥 GAS debug log:\n" + result.debug.join("\n"));
-
-    if (result.lastRow) lastRowId = result.lastRow;
-    alert("✅ Gửi dữ liệu thành công!");
+    await fetch(SCRIPT_URL, { 
+      method: "POST", 
+      body: JSON.stringify(payload),
+      mode: "no-cors"
+    });
+    log("📡 Request đã gửi (no-cors), không kiểm tra được status");
 
   } catch(err) {
-    log("❌ Lỗi gửi dữ liệu tới GAS: " + err);
-    alert("❌ Lỗi gửi dữ liệu, xem debug log");
+    log("❌ Lỗi gửi dữ liệu: " + err);
   }
 
   document.getElementById("controls").style.display = "none";
@@ -109,5 +103,6 @@ async function sendData() {
 
 document.getElementById("btnSend").addEventListener("click", sendData);
 </script>
+
 </body>
 </html>
