@@ -34,7 +34,8 @@
 <div id="debug">Trang đã load...\n</div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec"; // Thay bằng deploy của bạn
+const CODE_VERSION = "2025-09-06 15:20"; // <-- Cập nhật khi push bản mới
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec"; // Apps Script deploy
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
 let lastRowId = null;
@@ -44,6 +45,11 @@ function log(msg) {
   debug.textContent += msg + "\n";
   debug.scrollTop = debug.scrollHeight;
 }
+
+// Log version ngay khi load
+window.addEventListener("load", () => {
+  log("📌 CODE_VERSION: " + CODE_VERSION);
+});
 
 // Thay đổi chế độ quét
 document.getElementById("togglePosition").addEventListener("change", e=>{
