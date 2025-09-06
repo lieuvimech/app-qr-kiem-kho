@@ -17,7 +17,7 @@
 <body>
 
 <h2>📦 App kiểm kho QR</h2>
-<p id="version"></p>
+<p id="version">📌 CODE_VERSION: 16</p>
 
 <label>
   <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
@@ -35,10 +35,7 @@
 <div id="debug">Trang đã load...\n</div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
-const CODE_VERSION = "15"; // cập nhật theo git commit/push
-document.getElementById("version").innerText = "📌 CODE_VERSION: " + CODE_VERSION;
-
+const SCRIPT_URL = "https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_ID/exec";
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
 let lastRowId = null;
 
@@ -46,6 +43,7 @@ function log(msg) {
   const debug = document.getElementById("debug");
   debug.textContent += msg + "\n";
   debug.scrollTop = debug.scrollHeight;
+  console.log(msg);
 }
 
 document.getElementById("togglePosition").addEventListener("change", e => {
@@ -54,16 +52,13 @@ document.getElementById("togglePosition").addEventListener("change", e => {
 });
 
 let scanner;
-
 function onScanSuccess(decodedText) {
   log("✅ Scan thành công: " + decodedText);
   document.getElementById("scannedText").innerText = decodedText;
   document.getElementById("controls").style.display = "block";
 }
 
-function onScanFailure(error) {
-  // không spam log
-}
+function onScanFailure(error) {}
 
 window.addEventListener("load", () => {
   log("Khởi tạo Html5Qrcode...");
@@ -86,55 +81,33 @@ window.addEventListener("load", () => {
 
 async function sendData() {
   const text = document.getElementById("scannedText").innerText;
-  if (!text) {
-    log("⚠️ Không có dữ liệu QR để gửi");
-    return;
-  }
-
-  const qtyInput = document.getElementById("inputQty").value;
-  const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
-  let payload = { qr_text: text, qty };
-
-  if (ENABLE_SCAN_POSITION && !lastRowId) {
-    payload.isPosition = false;
-  } else if (ENABLE_SCAN_POSITION && lastRowId) {
-    payload.isPosition = true;
-    payload.rowId = lastRowId;
-  } else {
-    payload.isPosition = false;
-  }
+  if (!text) { log("⚠️ Không có dữ liệu QR để gửi"); return; }
+  const qty = parseInt(document.getElementById("inputQty").value) || 1;
+  let payload = { qr_text: text, qty, isPosition: ENABLE_SCAN_POSITION && !!lastRowId };
+  if (payload.isPosition) payload.rowId = lastRowId;
 
   log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
   log("📡 Bắt đầu gửi request tới GAS...");
 
   try {
-    await fetch(SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify(payload),
-      mode: "no-cors"
-    });
-    log("✅ Request đã gửi (no-cors mode, không đọc response)");
-    lastRowId = null; // reset vì không thể lấy lastRow
-    alert("✅ Dữ liệu đã gửi thành công!");
+    const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+    log("📡 Request đã gửi, HTTP status: " + resp.status);
+    const result = await resp.json();
+    log("📥 GAS debug log:\n" + result.debug.join("\n"));
+
+    if (result.lastRow) lastRowId = result.lastRow;
+    alert("✅ Gửi dữ liệu thành công!");
+
   } catch(err) {
-    log("❌ Lỗi gửi dữ liệu: " + err);
+    log("❌ Lỗi gửi dữ liệu tới GAS: " + err);
     alert("❌ Lỗi gửi dữ liệu, xem debug log");
   }
 
   document.getElementById("controls").style.display = "none";
   document.getElementById("inputQty").value = "";
-
-  // Bắt đầu quét lại
-  scanner.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: 250 },
-    onScanSuccess,
-    onScanFailure
-  );
 }
 
 document.getElementById("btnSend").addEventListener("click", sendData);
 </script>
-
 </body>
 </html>
