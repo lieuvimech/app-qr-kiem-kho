@@ -18,7 +18,7 @@
 
 <h2>📦 App kiểm kho QR</h2>
 
-<p id="version">📌 CODE_VERSION: 14</p>
+<p id="version">📌 CODE_VERSION: 14.5</p>
 
 <label>
   <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
@@ -112,11 +112,11 @@ async function sendData() {
     const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
     log("📡 Request đã gửi, HTTP status: " + resp.status);
 
-    //respText = await resp.text();
-    //log("📥 GAS raw response: " + respText);
+    respText = await resp.text();
+    log("📥 GAS raw response: " + respText);
 
     try {
-      let result = JSON.parse(respText);
+      let result = JSON.parse(payload);
       log("📥 GAS parsed JSON: " + JSON.stringify(result));
       if (result.lastRow) lastRowId = result.lastRow;
     } catch(e) {
