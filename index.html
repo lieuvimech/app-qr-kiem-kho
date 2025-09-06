@@ -1,21 +1,20 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>📦 App kiểm kho QR 17.5</title>
+<title>📦 App kiểm kho QR</title>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
 <style>
   body { font-family: sans-serif; text-align: center; padding: 10px; }
   #reader { width: 100%; max-width: 400px; margin: auto; }
   #controls { margin-top: 20px; display: block; }
-  input, button { padding: 6px; font-size: 16px; }
+  input, button { padding: 6px; font-size: 16px; margin: 2px; }
   #debug { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
-<h2>📦 App kiểm kho QR ver 17</h2>
+<h2>📦 App kiểm kho QR 18</h2>
 
 <div id="reader"></div>
 
@@ -29,7 +28,7 @@
 <div id="debug">Trang đã load...\n</div>
 
 <script>
-const FLASK_URL = "http://localhost:8765/send"; // endpoint Flask
+const FLASK_URL = "http://localhost:5000/send"; // endpoint Flask
 
 let scanner;
 function log(msg) {
@@ -50,8 +49,10 @@ window.addEventListener("load", () => {
     if(cams && cams.length) {
       log("Sử dụng camera: " + cams[0].label);
       scanner.start({facingMode:"environment"}, {fps:10, qrbox:250}, onScanSuccess, ()=>{});
+    } else {
+      log("❌ Không tìm thấy camera");
     }
-  });
+  }).catch(err => log("❌ Lỗi getCameras: " + err));
 });
 
 async function sendData() {
