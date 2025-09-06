@@ -36,7 +36,7 @@
 <div id="debug">Trang đã load...\n</div>
 
 <script>
-const CODE_VERSION = 7;  // <-- tự đặt version số
+const CODE_VERSION = 15;  // <-- tự đặt version số
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
@@ -112,8 +112,8 @@ async function sendData() {
     const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
     log("📡 Request đã gửi, HTTP status: " + resp.status);
 
-    respText = await resp.text();
-    log("📥 GAS raw response: " + respText);
+    //respText = await resp.text();
+    //log("📥 GAS raw response: " + respText);
 
     try {
       let result = JSON.parse(respText);
