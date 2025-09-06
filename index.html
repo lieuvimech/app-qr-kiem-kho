@@ -87,28 +87,37 @@ async function sendData() {
 
   let payload = { qr_text: text, qty };
 
-  if (ENABLE_SCAN_POSITION) {
-    if (!lastRowId) {
-      // gửi mã vật tư → tạo dòng mới
-      payload.isPosition = false;
-      logDebug("📤 Gửi mã vật tư: " + JSON.stringify(payload));
-      const resp = await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
-      lastRowId = "last"; // chỉ đánh dấu đã gửi vật tư, Apps Script sẽ append row
-      alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
+  try {
+    if (ENABLE_SCAN_POSITION) {
+      if (!lastRowId) {
+        // gửi mã vật tư → tạo dòng mới
+        payload.isPosition = false;
+        logDebug("📤 Gửi mã vật tư: " + JSON.stringify(payload));
+        const resp = await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
+        const result = await resp.json();
+        lastRowId = result.lastRow;
+        alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
+      } else {
+        // gửi mã vị trí → cập nhật cột D của dòng vừa tạo
+        payload.isPosition = true;
+        payload.rowId = lastRowId; // nếu cần Apps Script dùng rowId
+        logDebug("📤 Gửi mã vị trí: " + JSON.stringify(payload));
+        const resp = await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
+        const result = await resp.json();
+        alert("📍 Đã gửi mã vị trí!");
+        lastRowId = null; // reset
+      }
     } else {
-      // gửi mã vị trí → cập nhật cột D của dòng vừa tạo
-      payload.isPosition = true;
-      logDebug("📤 Gửi mã vị trí: " + JSON.stringify(payload));
-      await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
-      alert("📍 Đã gửi mã vị trí!");
-      lastRowId = null; // reset
+      // gửi bình thường → append row
+      payload.isPosition = false;
+      logDebug("📤 Gửi dữ liệu: " + JSON.stringify(payload));
+      const resp = await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
+      const result = await resp.json();
+      alert("✅ Đã gửi dữ liệu!");
     }
-  } else {
-    // gửi bình thường → append row
-    payload.isPosition = false;
-    logDebug("📤 Gửi dữ liệu: " + JSON.stringify(payload));
-    await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify(payload) });
-    alert("✅ Đã gửi dữ liệu!");
+  } catch(err) {
+    logDebug("❌ Lỗi gửi dữ liệu: " + err);
+    alert("❌ Lỗi gửi dữ liệu, xem debug log");
   }
 
   document.getElementById("controls").style.display = "none";
