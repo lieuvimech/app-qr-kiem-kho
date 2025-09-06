@@ -37,7 +37,7 @@
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
-const CODE_VERSION = "10"; // cập nhật theo git commit/push
+const CODE_VERSION = "11"; // cập nhật theo git commit/push
 document.getElementById("version").innerText = "📌 CODE_VERSION: " + CODE_VERSION;
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
@@ -93,7 +93,6 @@ async function sendData() {
   let payload = { qr_text: text, qty };
 
   try {
-    let resp, raw, result;
     log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
 
     if (ENABLE_SCAN_POSITION && !lastRowId) {
@@ -106,17 +105,21 @@ async function sendData() {
     }
 
     log("📡 Bắt đầu gửi request tới GAS...");
-    resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+    const resp = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json' }
+    });
     log("📡 Request đã gửi, HTTP status: " + resp.status);
 
-    raw = await resp.text();
+    const raw = await resp.text();
     log("📥 GAS raw response: " + raw);
 
+    let result;
     try {
       result = JSON.parse(raw);
       log("📦 Parsed JSON: " + JSON.stringify(result));
-      if (payload.isPosition) lastRowId = null;
-      else lastRowId = result.lastRow || lastRowId;
+      lastRowId = payload.isPosition ? null : (result.lastRow || lastRowId);
       alert("✅ Gửi dữ liệu thành công!");
     } catch(err) {
       log("❌ Lỗi parse JSON: " + err);
@@ -130,10 +133,7 @@ async function sendData() {
 
   document.getElementById("controls").style.display = "none";
   document.getElementById("inputQty").value = "";
-  scanner.render(onScanSuccess);
 }
-
-document.getElementById("btnSend").addEventListener("click", sendData);
 </script>
 
 </body>
