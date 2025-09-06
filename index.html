@@ -37,7 +37,7 @@
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
-const CODE_VERSION = "9"; // cập nhật theo git commit/push
+const CODE_VERSION = "10"; // cập nhật theo git commit/push
 document.getElementById("version").innerText = "📌 CODE_VERSION: " + CODE_VERSION;
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
@@ -58,7 +58,7 @@ let scanner;
 
 function onScanSuccess(decodedText) {
   log("✅ Scan thành công: " + decodedText);
-  scanner.clear();
+  //scanner.clear();
   document.getElementById("scannedText").innerText = decodedText;
   document.getElementById("controls").style.display = "block";
 }
