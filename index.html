@@ -3,11 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <title>📦 App kiểm kho QR</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; }
+    #reader { width: 100%; max-width: 400px; margin: auto; }
+    #result { margin-top: 20px; font-size: 18px; }
+  </style>
 </head>
 <body>
-  <h1>📦 App kiểm kho QR</h1>
-  <div id="reader" style="width:300px"></div>
+  <h2>📦 App kiểm kho QR</h2>
+  <div id="reader"></div>
   <p id="result">Kết quả sẽ hiện ở đây...</p>
 
   <script>
@@ -19,11 +25,11 @@
       console.warn(`Lỗi quét: ${error}`);
     }
 
-    let html5QrCode = new Html5Qrcode("reader");
+    const html5QrCode = new Html5Qrcode("reader");
     Html5Qrcode.getCameras().then(cameras => {
       if (cameras && cameras.length) {
         html5QrCode.start(
-          { facingMode: "environment" }, // Camera sau
+          { facingMode: "environment" }, // dùng camera sau
           { fps: 10, qrbox: 250 },
           onScanSuccess,
           onScanFailure
