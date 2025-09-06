@@ -8,16 +8,17 @@
 <style>
   body { font-family: sans-serif; text-align: center; padding: 10px; }
   #reader { width: 100%; max-width: 400px; margin: auto; }
-  #controls { margin-top: 20px; display: block; }
+  #controls { margin-top: 20px; display: none; }
   input { padding: 6px; font-size: 16px; width: 100px; }
   button { padding: 6px 12px; font-size: 16px; margin-left: 6px; }
-  #debug { text-align: left; margin-top: 20px; max-height: 250px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
+  #debug { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <h2>📦 App kiểm kho QR</h2>
-<p id="version"></p>
+
+<p id="version">📌 CODE_VERSION: 7</p>
 
 <label>
   <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
@@ -28,21 +29,18 @@
 <div id="controls">
   <p>Mã vừa quét: <b id="scannedText"></b></p>
   <input id="inputQty" type="number" placeholder="Số lượng (mặc định =1)">
-  <button id="btnSend">Gửi</button>
+  <button onclick="sendData()">Gửi thủ công</button>
 </div>
 
 <h3>📋 Debug log</h3>
-<div id="debug">Trang đã load...</div>
+<div id="debug">Trang đã load...\n</div>
 
 <script>
+const CODE_VERSION = 7;  // <-- tự đặt version số
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
-
-const CODE_VERSION = "6"; // ghi lại bản push theo git/date
-document.getElementById("version").innerText = "📌 CODE_VERSION: " + CODE_VERSION;
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
 let lastRowId = null;
-let scanner;
 
 function log(msg) {
   const debug = document.getElementById("debug");
@@ -60,12 +58,14 @@ function onScanSuccess(decodedText) {
   scanner.clear();
   document.getElementById("scannedText").innerText = decodedText;
   document.getElementById("controls").style.display = "block";
+
+  // Gửi tự động
+  sendData();
 }
 
-function onScanFailure(error) {
-  // Không spam log
-}
+function onScanFailure(error) {}
 
+let scanner;
 window.addEventListener("load", () => {
   log("Khởi tạo Html5Qrcode...");
   try {
@@ -91,43 +91,42 @@ window.addEventListener("load", () => {
 
 async function sendData() {
   const text = document.getElementById("scannedText").innerText;
+  if (!text) {
+    log("⚠️ Không có dữ liệu QR để gửi");
+    return;
+  }
   const qtyInput = document.getElementById("inputQty").value;
   const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
 
   let payload = { qr_text: text, qty };
+
   try {
+    let respText;
     log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
-    let resp = await fetch(SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
+    log("📡 Bắt đầu gửi request tới GAS...");
+
+    const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
     log("📡 Request đã gửi, HTTP status: " + resp.status);
 
-    let result = await resp.json();
-    log("📥 GAS trả về: " + JSON.stringify(result));
+    respText = await resp.text();
+    log("📥 GAS raw response: " + respText);
 
-    if (ENABLE_SCAN_POSITION) {
-      if (!lastRowId) {
-        lastRowId = result.lastRow;
-        alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
-      } else {
-        alert("📍 Đã gửi mã vị trí!");
-        lastRowId = null;
-      }
-    } else {
-      alert("✅ Đã gửi dữ liệu!");
+    try {
+      let result = JSON.parse(respText);
+      log("📥 GAS parsed JSON: " + JSON.stringify(result));
+      if (result.lastRow) lastRowId = result.lastRow;
+    } catch(e) {
+      log("❌ Lỗi parse JSON: " + e);
     }
+
   } catch(err) {
     log("❌ Lỗi khi gửi dữ liệu tới GAS: " + err);
-    alert("❌ Lỗi gửi dữ liệu, xem debug log");
   }
 
   document.getElementById("controls").style.display = "none";
   document.getElementById("inputQty").value = "";
-  scanner.render(onScanSuccess); // bật quét lại
+  scanner.render(onScanSuccess); 
 }
-
-document.getElementById("btnSend").addEventListener("click", sendData);
 </script>
 
 </body>
