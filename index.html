@@ -18,7 +18,7 @@
 
 <h2>📦 App kiểm kho QR</h2>
 
-<p id="version"></p>
+<p id="version">📌 CODE_VERSION: 12</p>
 
 <label>
   <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
@@ -29,19 +29,18 @@
 <div id="controls">
   <p>Mã vừa quét: <b id="scannedText"></b></p>
   <input id="inputQty" type="number" placeholder="Số lượng (mặc định =1)">
-  <button id="btnSend">Gửi</button>
+  <button onclick="sendData()">Gửi thủ công</button>
 </div>
 
 <h3>📋 Debug log</h3>
 <div id="debug">Trang đã load...\n</div>
 
 <script>
+const CODE_VERSION = 7;  // <-- tự đặt version số
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
-const CODE_VERSION = "11"; // cập nhật theo git commit/push
-document.getElementById("version").innerText = "📌 CODE_VERSION: " + CODE_VERSION;
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
-let lastRowId = null; // row vừa tạo khi gửi vật tư
+let lastRowId = null;
 
 function log(msg) {
   const debug = document.getElementById("debug");
@@ -49,90 +48,88 @@ function log(msg) {
   debug.scrollTop = debug.scrollHeight;
 }
 
-document.getElementById("togglePosition").addEventListener("change", e => {
+document.getElementById("togglePosition").addEventListener("change", (e)=>{
   ENABLE_SCAN_POSITION = e.target.checked;
   log("ENABLE_SCAN_POSITION = " + ENABLE_SCAN_POSITION);
 });
 
-let scanner;
-
 function onScanSuccess(decodedText) {
   log("✅ Scan thành công: " + decodedText);
-  //scanner.clear();
+  
+  //Lấy dữ liệu
   document.getElementById("scannedText").innerText = decodedText;
   document.getElementById("controls").style.display = "block";
+
+  // Gửi tự động
+  sendData();
+
+  //Clear dữ liệu
+  scanner.clear();
 }
 
-function onScanFailure(error) {
-  // không spam log
-}
+function onScanFailure(error) {}
 
+let scanner;
 window.addEventListener("load", () => {
   log("Khởi tạo Html5Qrcode...");
-  scanner = new Html5Qrcode("reader");
-  Html5Qrcode.getCameras().then(cameras => {
-    if (cameras && cameras.length) {
-      log("Sử dụng camera: " + cameras[0].label);
-      scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        onScanSuccess,
-        onScanFailure
-      ).then(() => log("🚀 Bắt đầu quét"))
-       .catch(err => log("❌ Lỗi start scanner: " + err));
-    } else {
-      log("❌ Không tìm thấy camera!");
-    }
-  }).catch(err => log("❌ Lỗi getCameras: " + err));
+  try {
+    scanner = new Html5Qrcode("reader");
+    Html5Qrcode.getCameras().then(cameras => {
+      if (cameras && cameras.length) {
+        log("Sử dụng camera: " + cameras[0].label);
+        scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: 250 },
+          onScanSuccess,
+          onScanFailure
+        ).then(() => log("🚀 Bắt đầu quét"))
+         .catch(err => log("❌ Lỗi start scanner: " + err));
+      } else {
+        log("❌ Không tìm thấy camera!");
+      }
+    }).catch(err => log("❌ Lỗi getCameras: " + err));
+  } catch(e) {
+    log("❌ Lỗi khởi tạo scanner: " + e);
+  }
 });
 
 async function sendData() {
   const text = document.getElementById("scannedText").innerText;
+  if (!text) {
+    log("⚠️ Không có dữ liệu QR để gửi");
+    return;
+  }
   const qtyInput = document.getElementById("inputQty").value;
   const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
+
   let payload = { qr_text: text, qty };
 
   try {
+    let respText;
     log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
-
-    if (ENABLE_SCAN_POSITION && !lastRowId) {
-      payload.isPosition = false;
-    } else if (ENABLE_SCAN_POSITION && lastRowId) {
-      payload.isPosition = true;
-      payload.rowId = lastRowId;
-    } else {
-      payload.isPosition = false;
-    }
-
     log("📡 Bắt đầu gửi request tới GAS...");
-    const resp = await fetch(SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'application/json' }
-    });
+
+    const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
     log("📡 Request đã gửi, HTTP status: " + resp.status);
 
-    const raw = await resp.text();
-    log("📥 GAS raw response: " + raw);
+    respText = await resp.text();
+    log("📥 GAS raw response: " + respText);
 
-    let result;
     try {
-      result = JSON.parse(raw);
-      log("📦 Parsed JSON: " + JSON.stringify(result));
-      lastRowId = payload.isPosition ? null : (result.lastRow || lastRowId);
-      alert("✅ Gửi dữ liệu thành công!");
-    } catch(err) {
-      log("❌ Lỗi parse JSON: " + err);
-      alert("❌ Lỗi parse JSON, xem debug log");
+      let result = JSON.parse(respText);
+      log("📥 GAS parsed JSON: " + JSON.stringify(result));
+      if (result.lastRow) lastRowId = result.lastRow;
+    } catch(e) {
+      log("❌ Lỗi parse JSON: " + e);
     }
 
   } catch(err) {
-    log("❌ Lỗi gửi dữ liệu tới GAS: " + err);
-    alert("❌ Lỗi gửi dữ liệu, xem debug log");
+    log("❌ Lỗi khi gửi dữ liệu tới GAS: " + err);
   }
 
   document.getElementById("controls").style.display = "none";
   document.getElementById("inputQty").value = "";
+  scanner.render(onScanSuccess); 
 }
 </script>
 
