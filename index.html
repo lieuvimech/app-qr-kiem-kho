@@ -82,8 +82,15 @@
       const html5QrCode = new Html5Qrcode("reader");
       Html5Qrcode.getCameras().then(devices => {
         if (devices && devices.length) {
-          const cameraId = devices[0].id;
-          logDebug("Sử dụng camera: " + devices[0].label);
+          // Ưu tiên camera sau
+          let backCamera = devices.find(d => 
+            d.label.toLowerCase().includes("back") || 
+            d.label.toLowerCase().includes("rear")
+          );
+          const cameraId = backCamera ? backCamera.id : devices[0].id;
+    
+          logDebug("Sử dụng camera: " + (backCamera ? backCamera.label : devices[0].label));
+    
           html5QrCode.start(
             cameraId,
             { fps: 10, qrbox: 250 },
@@ -95,7 +102,6 @@
         }
       }).catch(err => logDebug("❌ Lỗi getCameras: " + err));
     }
-
     startScanner();
   </script>
 </body>
