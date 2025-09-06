@@ -34,7 +34,7 @@
 <div id="debug"></div>
 
 <script>
-const CODE_VERSION = "3"; // bạn có thể update theo git commit/push
+const CODE_VERSION = "4"; // bạn có thể update theo git commit/push
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec"; // Apps Script deploy
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
@@ -89,64 +89,52 @@ window.addEventListener("load", () => {
 });
 
 async function sendData() {
-  const text = document.getElementById("scannedText").innerText;
+  const text = document.getElementById("scannedText").innerText.trim();
+  if (!text) {
+    alert("⚠️ Chưa có QR code nào để gửi!");
+    return;
+  }
+
   const qtyInput = document.getElementById("inputQty").value;
   const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
 
   let payload = { qr_text: text, qty };
 
+  log("📤 Chuẩn bị gửi mã vật tư: " + JSON.stringify(payload));
+  document.getElementById("controls").style.display = "none";
+
   try {
     let resp, result;
-    if (ENABLE_SCAN_POSITION) {
-      if (!lastRowId) {
-        payload.isPosition = false;
-        log("📤 Chuẩn bị gửi mã vật tư: " + JSON.stringify(payload));
+    log("📡 Bắt đầu gửi request tới GAS...");
 
-        log("📡 Bắt đầu gửi request tới GAS...");
-        resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-        log("📡 Request đã gửi, HTTP status: " + resp.status);
+    resp = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json" }
+    });
 
-        result = await resp.json();
-        log("📥 GAS trả về: " + JSON.stringify(result));
+    const status = resp.status;
+    log("📡 Request đã gửi, HTTP status: " + status);
 
-        if(result.lastRow) lastRowId = result.lastRow;
-        alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
-      } else {
-        payload.isPosition = true;
-        payload.rowId = lastRowId;
-        log("📤 Chuẩn bị gửi mã vị trí: " + JSON.stringify(payload));
-
-        log("📡 Bắt đầu gửi request tới GAS...");
-        resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-        log("📡 Request đã gửi, HTTP status: " + resp.status);
-
-        result = await resp.json();
-        log("📥 GAS trả về: " + JSON.stringify(result));
-
-        alert("📍 Đã gửi mã vị trí!");
-        lastRowId = null;
-      }
-    } else {
-      payload.isPosition = false;
-      log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
-
-      log("📡 Bắt đầu gửi request tới GAS...");
-      resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-      log("📡 Request đã gửi, HTTP status: " + resp.status);
-
+    try {
       result = await resp.json();
-      log("📥 GAS trả về: " + JSON.stringify(result));
-
-      alert("✅ Đã gửi dữ liệu!");
+      log("📥 GAS trả về JSON: " + JSON.stringify(result));
+    } catch (e) {
+      const textResp = await resp.text();
+      log("❌ Không parse được JSON, raw response: " + textResp);
+      result = { raw: textResp };
     }
+
+    alert("✅ Dữ liệu đã gửi! Xem debug log để biết chi tiết.");
   } catch(err) {
     log("❌ Lỗi khi gửi dữ liệu tới GAS: " + err);
     alert("❌ Lỗi gửi dữ liệu, xem debug log");
   }
 
-  document.getElementById("controls").style.display = "none";
+  // Reset controls và bật quét lại
   document.getElementById("inputQty").value = "";
-  scanner.render(onScanSuccess);
+  document.getElementById("controls").style.display = "none";
+  scanner.render(onScanSuccess); // bật quét lại
 }
 </script>
 
