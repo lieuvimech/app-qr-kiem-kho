@@ -18,7 +18,7 @@
 
 <h2>📦 App kiểm kho QR</h2>
 
-<p id="version">📌 CODE_VERSION: 14.5</p>
+<p id="version">📌 CODE_VERSION: 14.7</p>
 
 <label>
   <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
@@ -36,7 +36,6 @@
 <div id="debug">Trang đã load...\n</div>
 
 <script>
-const CODE_VERSION = 15;  // <-- tự đặt version số
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
@@ -99,37 +98,65 @@ async function sendData() {
     log("⚠️ Không có dữ liệu QR để gửi");
     return;
   }
+
   const qtyInput = document.getElementById("inputQty").value;
   const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
 
   let payload = { qr_text: text, qty };
 
+  // Xác định loại payload
+  if (ENABLE_SCAN_POSITION && !lastRowId) {
+    payload.isPosition = false; // tạo row mới
+  } else if (ENABLE_SCAN_POSITION && lastRowId) {
+    payload.isPosition = true;  // cập nhật mã vị trí
+    payload.rowId = lastRowId;
+  } else {
+    payload.isPosition = false;
+  }
+
   try {
-    let respText;
     log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
     log("📡 Bắt đầu gửi request tới GAS...");
 
-    const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+    const resp = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
     log("📡 Request đã gửi, HTTP status: " + resp.status);
 
-    respText = await resp.text();
-    log("📥 GAS raw response: " + respText);
+    const rawText = await resp.text();
+    log("📥 GAS raw response: " + rawText);
 
+    // Cố parse JSON, fallback nếu không phải JSON
+    let result;
     try {
-      let result = JSON.parse(payload);
-      log("📥 GAS parsed JSON: " + JSON.stringify(result));
-      if (result.lastRow) lastRowId = result.lastRow;
+      result = JSON.parse(rawText);
+      log("📦 GAS parsed JSON: " + JSON.stringify(result));
     } catch(e) {
-      log("❌ Lỗi parse JSON: " + e);
+      log("⚠️ GAS không trả JSON, dùng raw text: " + rawText);
+      result = { raw: rawText }; // lưu raw để debug
     }
+
+    // Lưu lastRowId nếu có
+    if (payload.isPosition) {
+      lastRowId = null;
+    } else if (result.lastRow) {
+      lastRowId = result.lastRow;
+    }
+
+    alert("✅ Dữ liệu đã gửi! Xem debug log để biết chi tiết");
 
   } catch(err) {
     log("❌ Lỗi khi gửi dữ liệu tới GAS: " + err);
+    alert("❌ Lỗi gửi dữ liệu, xem debug log");
   }
 
+  // Reset UI
   document.getElementById("controls").style.display = "none";
   document.getElementById("inputQty").value = "";
-  scanner.render(onScanSuccess); 
+  scanner.render(onScanSuccess);
 }
 </script>
 
