@@ -68,7 +68,7 @@ const scanner = new Html5Qrcode("reader");
 
 Html5Qrcode.getCameras().then(cameras => {
   if(cameras && cameras.length){
-    const cameraId = cameras[0].id; // camera chính sau
+    const cameraId = cameras[1].id; // camera chính sau
     logDebug("Sử dụng camera: " + cameras[0].label);
     scanner.start(
       { deviceId: { exact: cameraId } },
