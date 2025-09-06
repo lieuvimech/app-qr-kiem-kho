@@ -31,13 +31,13 @@
 </div>
 
 <h3>📋 Debug log</h3>
-<div id="debug">Trang đã load...</div>
+<div id="debug">Trang đã load...\n</div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec"; // <-- Thay YOUR_SCRIPT_ID bằng Apps Script deploy
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec"; // Apps Script deploy
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
-let lastRowId = null; // lưu dòng vừa tạo khi gửi QR vật tư
+let lastRowId = null; // lưu row vừa tạo khi gửi QR vật tư
 
 function log(msg) {
   const debug = document.getElementById("debug");
@@ -93,26 +93,34 @@ async function sendData() {
   let payload = { qr_text: text, qty };
 
   try {
+    let resp, result;
     if (ENABLE_SCAN_POSITION) {
       if (!lastRowId) {
-        // gửi mã vật tư → tạo dòng mới
+        // gửi mã vật tư → tạo row mới
         payload.isPosition = false;
         log("📤 Gửi mã vật tư: " + JSON.stringify(payload));
-        await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-        lastRowId = "last"; // chỉ đánh dấu đã gửi vật tư
+        resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+        result = await resp.json();
+        log("📥 GAS trả về: " + JSON.stringify(result));
+        lastRowId = result.lastRow;
         alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
       } else {
         // gửi mã vị trí → cập nhật cột D
         payload.isPosition = true;
+        payload.rowId = lastRowId; // nếu muốn tracking row
         log("📤 Gửi mã vị trí: " + JSON.stringify(payload));
-        await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+        resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+        result = await resp.json();
+        log("📥 GAS trả về: " + JSON.stringify(result));
         alert("📍 Đã gửi mã vị trí!");
-        lastRowId = null; // reset
+        lastRowId = null;
       }
     } else {
       payload.isPosition = false;
       log("📤 Gửi dữ liệu: " + JSON.stringify(payload));
-      await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+      resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+      result = await resp.json();
+      log("📥 GAS trả về: " + JSON.stringify(result));
       alert("✅ Đã gửi dữ liệu!");
     }
   } catch(err) {
