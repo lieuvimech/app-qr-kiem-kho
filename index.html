@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>App kiểm kho QR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; }
+    #reader { width: 100%; max-width: 500px; margin: auto; }
+    #controls { margin-top: 20px; display: none; }
+    input { padding: 6px; font-size: 16px; width: 160px; }
+    button { padding: 8px 16px; font-size: 16px; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <h2>📦 App kiểm kho QR</h2>
+  
+  <div id="reader"></div>
+  
+  <div id="controls">
+    <p>Mã vừa quét: <b id="scannedText"></b></p>
+    <input id="inputQty" type="number" placeholder="Số lượng (mặc định =1)">
+    <button onclick="sendData()">Gửi</button>
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
+    const ENABLE_SCAN_POSITION = true;
+
+    let waitingForPosition = false;
+
+    function onScanSuccess(decodedText, decodedResult) {
+      scanner.clear(); // dừng quét
+      document.getElementById("scannedText").innerText = decodedText;
+      document.getElementById("controls").style.display = "block";
+    }
+
+    async function sendData() {
+      const text = document.getElementById("scannedText").innerText;
+      const qtyInput = document.getElementById("inputQty").value;
+      const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
+
+      if (ENABLE_SCAN_POSITION) {
+        if (!waitingForPosition) {
+          await fetch(SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({ qr_text: text, qty })
+          });
+          waitingForPosition = true;
+          alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
+        } else {
+          await fetch(SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({ qr_text: text, isPosition: true })
+          });
+          waitingForPosition = false;
+          alert("📍 Đã gửi mã vị trí!");
+        }
+      } else {
+        await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ qr_text: text, qty })
+        });
+        alert("✅ Đã gửi dữ liệu!");
+      }
+
+      // reset & bật quét lại
+      document.getElementById("controls").style.display = "none";
+      document.getElementById("inputQty").value = "";
+      scanner.render(onScanSuccess);
+    }
+
+    // khởi tạo scanner có sẵn UI
+    const scanner = new Html5QrcodeScanner(
+      "reader",
+      { fps: 10, qrbox: 250 },
+      false
+    );
+    scanner.render(onScanSuccess);
+  </script>
+</body>
+</html>
