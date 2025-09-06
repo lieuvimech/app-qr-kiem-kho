@@ -2,99 +2,68 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>App kiểm kho QR</title>
+  <title>📦 App kiểm kho QR (debug)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <!-- Thư viện quét QR -->
-  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; margin: 0; padding: 0; }
+    body { font-family: sans-serif; text-align: center; }
     #reader { width: 100%; max-width: 400px; margin: auto; }
-    #controls { margin-top: 20px; display: none; }
-    input { padding: 6px; font-size: 16px; width: 150px; }
-    button { padding: 8px 16px; font-size: 16px; margin-left: 8px; }
+    #result { margin-top: 20px; font-size: 18px; }
+    pre { text-align: left; background: #eee; padding: 10px; overflow-x: auto; }
   </style>
 </head>
 <body>
-  <h2>📦 App kiểm kho QR</h2>
-  
+  <h2>📦 App kiểm kho QR (debug)</h2>
   <div id="reader"></div>
-  
-  <div id="controls">
-    <p>Mã vừa quét: <b id="scannedText"></b></p>
-    <input id="inputQty" type="number" placeholder="Số lượng (mặc định =1)">
-    <button onclick="sendData()">Gửi</button>
-  </div>
+  <p id="result">Kết quả sẽ hiện ở đây...</p>
+
+  <h3>📋 Debug log</h3>
+  <pre id="debug"></pre>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
-    const ENABLE_SCAN_POSITION = true; // đổi false nếu không cần quét vị trí
-
-    let waitingForPosition = false;
-    let lastMaterial = null;
-    let html5QrcodeScanner;
-
-    function startScanner() {
-      html5QrcodeScanner = new Html5Qrcode("reader");
-      Html5Qrcode.getCameras().then(cameras => {
-        if (cameras && cameras.length) {
-          let cameraId = cameras[cameras.length - 1].id; // thường là camera sau
-          html5QrcodeScanner.start(
-            cameraId,
-            { fps: 10, qrbox: 250 },
-            qrCodeMessage => { onScanSuccess(qrCodeMessage); }
-          );
-        }
-      });
+    function log(msg) {
+      console.log(msg);
+      const debug = document.getElementById("debug");
+      debug.textContent += msg + "\n";
     }
 
     function onScanSuccess(decodedText) {
-      html5QrcodeScanner.pause(); // dừng camera
-      document.getElementById("scannedText").innerText = decodedText;
-      document.getElementById("controls").style.display = "block";
+      log("✅ Scan thành công: " + decodedText);
+      document.getElementById("result").innerText = "✅ Quét được: " + decodedText;
     }
 
-    async function sendData() {
-      const text = document.getElementById("scannedText").innerText;
-      const qtyInput = document.getElementById("inputQty").value;
-      const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
+    function onScanFailure(error) {
+      // log nhiều lỗi sẽ spam console, chỉ hiển thị một số
+    }
 
-      if (ENABLE_SCAN_POSITION) {
-        if (!waitingForPosition) {
-          // Mã vật tư
-          lastMaterial = text;
-          await fetch(SCRIPT_URL, {
-            method: "POST",
-            body: JSON.stringify({ qr_text: text, qty })
-          });
-          waitingForPosition = true;
-          alert("✅ Đã gửi mã vật tư, quét tiếp mã vị trí...");
-        } else {
-          // Mã vị trí
-          await fetch(SCRIPT_URL, {
-            method: "POST",
-            body: JSON.stringify({ qr_text: text, isPosition: true })
-          });
-          waitingForPosition = false;
-          alert("📍 Đã gửi mã vị trí!");
-        }
-      } else {
-        await fetch(SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify({ qr_text: text, qty })
-        });
-        alert("✅ Đã gửi dữ liệu!");
+    window.addEventListener("load", () => {
+      log("Trang đã load, bắt đầu init...");
+      try {
+        const html5QrCode = new Html5Qrcode("reader");
+        log("✅ Html5Qrcode đã khởi tạo");
+
+        Html5Qrcode.getCameras().then(cameras => {
+          log("📷 Số camera tìm thấy: " + (cameras ? cameras.length : 0));
+          if (cameras && cameras.length) {
+            log("Danh sách camera:");
+            cameras.forEach((cam, i) => log(`${i}: ${cam.label || "No label"}`));
+
+            html5QrCode.start(
+              { facingMode: "environment" }, // dùng camera sau
+              { fps: 10, qrbox: 250 },
+              onScanSuccess,
+              onScanFailure
+            ).then(() => log("🚀 Bắt đầu quét"))
+             .catch(err => log("❌ Lỗi khi start: " + err));
+          } else {
+            log("⚠️ Không tìm thấy camera nào!");
+          }
+        }).catch(err => log("❌ getCameras lỗi: " + err));
+
+      } catch (e) {
+        log("❌ Lỗi khởi tạo: " + e);
       }
-
-      // Reset & tiếp tục quét
-      document.getElementById("controls").style.display = "none";
-      document.getElementById("inputQty").value = "";
-      html5QrcodeScanner.resume();
-    }
-
-    // khởi động
-    window.onload = startScanner;
+    });
   </script>
 </body>
 </html>
