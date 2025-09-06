@@ -8,7 +8,7 @@
 <style>
   body { font-family: sans-serif; text-align: center; padding: 10px; }
   #reader { width: 100%; max-width: 400px; margin: auto; }
-  #controls { margin-top: 20px; display: block; } /* Ẩn ban đầu */
+  #controls { margin-top: 20px; display: block; }
   input { padding: 6px; font-size: 16px; width: 100px; }
   button { padding: 6px 12px; font-size: 16px; margin-left: 6px; }
   #debug { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; white-space: pre-wrap; }
@@ -18,7 +18,7 @@
 
 <h2>📦 App kiểm kho QR</h2>
 
-<p id="version">📌 CODE_VERSION: 7</p> <!-- Sửa cho đồng bộ -->
+<p id="version">📌 CODE_VERSION: 14</p>
 
 <label>
   <input type="checkbox" id="togglePosition" checked> ENABLE_SCAN_POSITION
@@ -36,7 +36,7 @@
 <div id="debug">Trang đã load...\n</div>
 
 <script>
-const CODE_VERSION = 13;
+const CODE_VERSION = 7;  // <-- tự đặt version số
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-HxqBU2XYaTofTloPQKoVFWa0jvOsnIk_eSU69R2NHaZVaNVyWjV8le6ZTuTdBcY_/exec";
 
 let ENABLE_SCAN_POSITION = document.getElementById("togglePosition").checked;
@@ -56,17 +56,18 @@ document.getElementById("togglePosition").addEventListener("change", (e)=>{
 function onScanSuccess(decodedText) {
   log("✅ Scan thành công: " + decodedText);
   
-  // Lấy dữ liệu
+  //Lấy dữ liệu
   document.getElementById("scannedText").innerText = decodedText;
   document.getElementById("controls").style.display = "block";
 
   // Gửi tự động
   sendData();
+
+  //Clear dữ liệu
+  scanner.clear();
 }
 
-function onScanFailure(error) {
-  log("❌ Scan thất bại: " + error);
-}
+function onScanFailure(error) {}
 
 let scanner;
 window.addEventListener("load", () => {
@@ -101,40 +102,23 @@ async function sendData() {
   const qtyInput = document.getElementById("inputQty").value;
   const qty = qtyInput && parseInt(qtyInput) > 0 ? parseInt(qtyInput) : 1;
 
-  // THÊM THÔNG TIN isPosition
-  let payload = { 
-    qr_text: text, 
-    qty: qty,
-    isPosition: ENABLE_SCAN_POSITION  // Quan trọng: thêm flag này
-  };
+  let payload = { qr_text: text, qty };
 
   try {
+    let respText;
     log("📤 Chuẩn bị gửi dữ liệu: " + JSON.stringify(payload));
     log("📡 Bắt đầu gửi request tới GAS...");
 
-    const resp = await fetch(SCRIPT_URL, { 
-      method: "POST", 
-      body: JSON.stringify(payload) 
-    });
-    
+    const resp = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
     log("📡 Request đã gửi, HTTP status: " + resp.status);
 
-    const respText = await resp.text();
+    respText = await resp.text();
     log("📥 GAS raw response: " + respText);
 
     try {
-      const result = JSON.parse(respText);
+      let result = JSON.parse(respText);
       log("📥 GAS parsed JSON: " + JSON.stringify(result));
-      
-      if (result.lastRow) {
-        lastRowId = result.lastRow;
-        log("✅ Ghi dữ liệu thành công tại row: " + lastRowId);
-      }
-      
-      if (result.debug) {
-        log("🐛 GAS debug: " + result.debug.join("\n"));
-      }
-      
+      if (result.lastRow) lastRowId = result.lastRow;
     } catch(e) {
       log("❌ Lỗi parse JSON: " + e);
     }
@@ -143,15 +127,9 @@ async function sendData() {
     log("❌ Lỗi khi gửi dữ liệu tới GAS: " + err);
   }
 
-  // Reset UI và chuẩn bị cho lần scan tiếp theo
   document.getElementById("controls").style.display = "none";
   document.getElementById("inputQty").value = "";
-  document.getElementById("scannedText").innerText = "";
-  
-  // Resume scanner
-  if (scanner) {
-    scanner.resume();
-  }
+  scanner.render(onScanSuccess); 
 }
 </script>
 
